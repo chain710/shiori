@@ -16,3 +16,6 @@ dist/
 
 # macOS trash files
 .DS_Store
+*.bak
+.idea
+go.sum

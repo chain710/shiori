@@ -2,7 +2,7 @@
 FROM ghcr.io/ghcri/golang:1.17-alpine3.15 AS builder
 WORKDIR /src
 COPY . .
-RUN go build -ldflags '-s -w'
+RUN go env -w GOPROXY=https://goproxy.cn,direct && go mod download all && go build -ldflags '-s -w'
 
 # server image
 
