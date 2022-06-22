@@ -73,8 +73,8 @@ func (db *MySQLDatabase) SaveBookmarks(ctx context.Context, create bool, bookmar
 	if err := db.withTx(ctx, func(tx *sqlx.Tx) error {
 		// Prepare statement
 		stmtInsertBook, err := tx.Preparex(`INSERT INTO bookmark
-			(url, title, excerpt, author, public, content, html, modified)
-			VALUES(?, ?, ?, ?, ?, ?, ?, ?)`)
+			(url, title, excerpt, author, public, content, html, modified, has_archive)
+			VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)`)
 		if err != nil {
 			return errors.WithStack(err)
 		}
@@ -87,7 +87,8 @@ func (db *MySQLDatabase) SaveBookmarks(ctx context.Context, create bool, bookmar
 			public   = ?,
 			content  = ?,
 			html     = ?,
-			modified = ?
+			modified = ?,
+			has_archive = ?
 		WHERE id = ?`)
 		if err != nil {
 			return errors.WithStack(err)
@@ -254,6 +255,11 @@ func (db *MySQLDatabase) GetBookmarks(ctx context.Context, opts GetBookmarksOpti
 		)`
 
 		args = append(args, "%"+opts.Keyword+"%", opts.Keyword)
+	}
+
+	if opts.HasArchive != nil {
+		query += `AND has_archive = ?`
+		args = append(args, *opts.HasArchive)
 	}
 
 	// Add where clause for tags.
