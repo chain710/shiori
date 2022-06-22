@@ -1,6 +1,8 @@
 package core
 
 import (
+	"fmt"
+	"github.com/go-shiori/shiori/internal/model"
 	"io"
 	"net/http"
 	"time"
@@ -28,4 +30,27 @@ func DownloadBookmark(url string) (io.ReadCloser, string, error) {
 	contentType := resp.Header.Get("Content-Type")
 
 	return resp.Body, contentType, nil
+}
+
+func DownloadBookmarkContent(book *model.Bookmark, dataDir string) (*model.Bookmark, error) {
+	content, contentType, err := DownloadBookmark(book.URL)
+	if err != nil {
+		return nil, fmt.Errorf("error downloading bookmark: %s", err)
+	}
+
+	processRequest := ProcessRequest{
+		DataDir:     dataDir,
+		Bookmark:    *book,
+		Content:     content,
+		ContentType: contentType,
+	}
+
+	result, isFatalErr, err := ProcessBookmark(processRequest)
+	_ = content.Close()
+
+	if err != nil && isFatalErr {
+		panic(fmt.Errorf("failed to process bookmark: %v", err))
+	}
+
+	return &result, err
 }

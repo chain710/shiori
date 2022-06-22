@@ -2,6 +2,7 @@ package webserver
 
 import (
 	"fmt"
+	"github.com/go-shiori/shiori/internal/core"
 	"html/template"
 	"net/http"
 
@@ -24,6 +25,10 @@ type handler struct {
 	Log          bool
 
 	templates map[string]*template.Template
+	// disable download content in insert/ext api
+	EnableBackgroundArchiver bool
+	// notify auto archive, could be nil
+	BackgroundArchiverNotifier core.ArchiverNotifier
 }
 
 func (h *handler) prepareSessionCache() {
@@ -128,4 +133,10 @@ func (h *handler) validateSession(r *http.Request) error {
 	}
 
 	return nil
+}
+
+func (h *handler) notify() {
+	if h.BackgroundArchiverNotifier != nil {
+		h.BackgroundArchiverNotifier.Notify()
+	}
 }

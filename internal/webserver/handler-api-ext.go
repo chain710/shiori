@@ -65,9 +65,7 @@ func (h *handler) apiInsertViaExtension(w http.ResponseWriter, r *http.Request, 
 	var contentType string
 	var contentBuffer io.Reader
 
-	if book.HTML == "" {
-		contentBuffer, contentType, _ = core.DownloadBookmark(book.URL)
-	} else {
+	if book.HTML != "" {
 		contentType = "text/html; charset=UTF-8"
 		contentBuffer = bytes.NewBufferString(book.HTML)
 	}
@@ -90,6 +88,7 @@ func (h *handler) apiInsertViaExtension(w http.ResponseWriter, r *http.Request, 
 			Bookmark:    book,
 			Content:     contentBuffer,
 			ContentType: contentType,
+			Fast:        h.BackgroundArchiverNotifier != nil,
 		}
 
 		var isFatalErr bool
@@ -105,6 +104,8 @@ func (h *handler) apiInsertViaExtension(w http.ResponseWriter, r *http.Request, 
 			log.Printf("failed to process bookmark: %v", err)
 		} else if _, err := h.DB.SaveBookmarks(ctx, false, book); err != nil {
 			log.Printf("error saving bookmark after downloading content: %s", err)
+		} else if h.BackgroundArchiverNotifier != nil {
+			h.BackgroundArchiverNotifier.Notify()
 		}
 	}
 

@@ -1,7 +1,9 @@
 package cmd
 
 import (
+	"github.com/go-shiori/shiori/internal/core"
 	"strings"
+	"time"
 
 	"github.com/go-shiori/shiori/internal/webserver"
 	"github.com/sirupsen/logrus"
@@ -22,6 +24,9 @@ func serveCmd() *cobra.Command {
 	cmd.Flags().StringP("address", "a", "", "Address the server listens to")
 	cmd.Flags().StringP("webroot", "r", "/", "Root path that used by server")
 	cmd.Flags().Bool("log", true, "Print out a non-standard access log")
+	cmd.Flags().Bool("enable-bg-archiver", false, "enable background archiver")
+	cmd.Flags().Int("bg-archiver-concurrent", 1, "num of background archiver workers")
+	cmd.Flags().Duration("bg-archiver-interval", time.Minute, "delay after each scan in background archiver")
 
 	return cmd
 }
@@ -32,6 +37,9 @@ func serveHandler(cmd *cobra.Command, args []string) {
 	address, _ := cmd.Flags().GetString("address")
 	rootPath, _ := cmd.Flags().GetString("webroot")
 	log, _ := cmd.Flags().GetBool("log")
+	bgArchiver, _ := cmd.Flags().GetBool("enable-bg-archiver")
+	bgArchiverConcurrent, _ := cmd.Flags().GetInt("bg-archiver-concurrent")
+	bgArchiverInterval, _ := cmd.Flags().GetDuration("bg-archiver-interval")
 
 	// Validate root path
 	if rootPath == "" {
@@ -54,6 +62,28 @@ func serveHandler(cmd *cobra.Command, args []string) {
 		ServerPort:    port,
 		RootPath:      rootPath,
 		Log:           log,
+
+		EnableBackgroundArchiver: bgArchiver,
+	}
+
+	if bgArchiver {
+		opt := core.BackgroundArchiverOptions{
+			Concurrent:   bgArchiverConcurrent,
+			ScanInterval: bgArchiverInterval,
+		}
+
+		ba, err := core.NewBackgroundArchiver(db, dataDir, opt)
+		if err != nil {
+			logrus.Errorf("create background archiver error: %\n", err)
+			return
+		}
+
+		serverConfig.BackgroundArchiverNotifier = ba
+		ba.Start()
+
+		defer ba.Stop()
+	} else {
+		logrus.Info("background archiver NOT enabled")
 	}
 
 	err := webserver.ServeApp(serverConfig)

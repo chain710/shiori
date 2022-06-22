@@ -2,6 +2,7 @@ package webserver
 
 import (
 	"fmt"
+	"github.com/go-shiori/shiori/internal/core"
 	"net/http"
 	"path"
 	"time"
@@ -20,6 +21,9 @@ type Config struct {
 	ServerPort    int
 	RootPath      string
 	Log           bool
+
+	EnableBackgroundArchiver   bool
+	BackgroundArchiverNotifier core.ArchiverNotifier
 }
 
 // ErrorResponse defines a single HTTP error response.
@@ -115,6 +119,8 @@ func ServeApp(cfg Config) error {
 		ArchiveCache: cch.New(time.Minute, 5*time.Minute),
 		RootPath:     cfg.RootPath,
 		Log:          cfg.Log,
+
+		BackgroundArchiverNotifier: cfg.BackgroundArchiverNotifier,
 	}
 
 	hdl.prepareSessionCache()

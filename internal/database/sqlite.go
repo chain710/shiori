@@ -83,15 +83,15 @@ func (db *SQLiteDatabase) SaveBookmarks(ctx context.Context, create bool, bookma
 		// Prepare statement
 
 		stmtInsertBook, err := tx.PreparexContext(ctx, `INSERT INTO bookmark
-			(url, title, excerpt, author, public, modified, has_content)
-			VALUES(?, ?, ?, ?, ?, ?, ?) RETURNING id`)
+			(url, title, excerpt, author, public, modified, has_content, has_archive)
+			VALUES(?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`)
 		if err != nil {
 			return errors.WithStack(err)
 		}
 
 		stmtUpdateBook, err := tx.PreparexContext(ctx, `UPDATE bookmark SET
 			url = ?, title = ?,	excerpt = ?, author = ?,
-			public = ?, modified = ?, has_content = ?
+			public = ?, modified = ?, has_content = ?, has_archive = ?
 			WHERE id = ?`)
 		if err != nil {
 			return errors.WithStack(err)
@@ -159,10 +159,10 @@ func (db *SQLiteDatabase) SaveBookmarks(ctx context.Context, create bool, bookma
 			var err error
 			if create {
 				err = stmtInsertBook.QueryRowContext(ctx,
-					book.URL, book.Title, book.Excerpt, book.Author, book.Public, book.Modified, hasContent).Scan(&book.ID)
+					book.URL, book.Title, book.Excerpt, book.Author, book.Public, book.Modified, hasContent, book.HasArchive).Scan(&book.ID)
 			} else {
 				_, err = stmtUpdateBook.ExecContext(ctx,
-					book.URL, book.Title, book.Excerpt, book.Author, book.Public, book.Modified, hasContent, book.ID)
+					book.URL, book.Title, book.Excerpt, book.Author, book.Public, book.Modified, hasContent, book.HasArchive, book.ID)
 			}
 			if err != nil {
 				return errors.WithStack(err)
@@ -335,6 +335,11 @@ func (db *SQLiteDatabase) GetBookmarks(ctx context.Context, opts GetBookmarksOpt
 			WHERE t.name IN(?))`
 
 		args = append(args, opts.ExcludedTags)
+	}
+
+	if opts.HasArchive != nil {
+		query += ` AND has_archive = ?`
+		args = append(args, *opts.HasArchive)
 	}
 
 	// Add order clause

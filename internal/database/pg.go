@@ -73,8 +73,8 @@ func (db *PGDatabase) SaveBookmarks(ctx context.Context, create bool, bookmarks 
 	if err := db.withTx(ctx, func(tx *sqlx.Tx) error {
 		// Prepare statement
 		stmtInsertBook, err := tx.Preparex(`INSERT INTO bookmark
-			(url, title, excerpt, author, public, content, html, modified)
-			VALUES($1, $2, $3, $4, $5, $6, $7, $8)
+			(url, title, excerpt, author, public, content, html, modified, has_archive)
+			VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9)
 		RETURNING id`)
 		if err != nil {
 			return errors.WithStack(err)
@@ -88,8 +88,9 @@ func (db *PGDatabase) SaveBookmarks(ctx context.Context, create bool, bookmarks 
 			public   = $5,
 			content  = $6,
 			html     = $7,
-			modified = $8
-			WHERE id = $9`)
+			modified = $8,
+			has_archive = $9
+			WHERE id = $10`)
 		if err != nil {
 			return errors.WithStack(err)
 		}
@@ -141,11 +142,11 @@ func (db *PGDatabase) SaveBookmarks(ctx context.Context, create bool, bookmarks 
 			if create {
 				err = stmtInsertBook.QueryRowContext(ctx,
 					book.URL, book.Title, book.Excerpt, book.Author,
-					book.Public, book.Content, book.HTML, book.Modified).Scan(&book.ID)
+					book.Public, book.Content, book.HTML, book.Modified, book.HasArchive).Scan(&book.ID)
 			} else {
 				_, err = stmtUpdateBook.ExecContext(ctx,
 					book.URL, book.Title, book.Excerpt, book.Author,
-					book.Public, book.Content, book.HTML, book.Modified, book.ID)
+					book.Public, book.Content, book.HTML, book.Modified, book.HasArchive, book.ID)
 			}
 			if err != nil {
 				return errors.WithStack(err)
@@ -245,6 +246,11 @@ func (db *PGDatabase) GetBookmarks(ctx context.Context, opts GetBookmarksOptions
 
 		arg["lkw"] = "%" + opts.Keyword + "%"
 		arg["kw"] = opts.Keyword
+	}
+
+	if opts.HasArchive != nil {
+		query += ` AND has_archive = :ha`
+		arg["ha"] = *opts.HasArchive
 	}
 
 	// Add where clause for tags.

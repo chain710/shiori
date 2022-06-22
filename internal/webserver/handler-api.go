@@ -23,29 +23,6 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-func downloadBookmarkContent(book *model.Bookmark, dataDir string, request *http.Request) (*model.Bookmark, error) {
-	content, contentType, err := core.DownloadBookmark(book.URL)
-	if err != nil {
-		return nil, fmt.Errorf("error downloading url: %s", err)
-	}
-
-	processRequest := core.ProcessRequest{
-		DataDir:     dataDir,
-		Bookmark:    *book,
-		Content:     content,
-		ContentType: contentType,
-	}
-
-	result, isFatalErr, err := core.ProcessBookmark(processRequest)
-	content.Close()
-
-	if err != nil && isFatalErr {
-		return nil, fmt.Errorf("failed to process: %v", err)
-	}
-
-	return &result, err
-}
-
 // apiLogin is handler for POST /api/login
 func (h *handler) apiLogin(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	ctx := r.Context()
@@ -163,6 +140,7 @@ func (h *handler) apiGetBookmarks(w http.ResponseWriter, r *http.Request, ps htt
 	strPage := r.URL.Query().Get("page")
 	strTags := r.URL.Query().Get("tags")
 	strExcludedTags := r.URL.Query().Get("exclude")
+	strHasArchive := r.URL.Query().Get("has_archive")
 
 	tags := strings.Split(strTags, ",")
 	if len(tags) == 1 && tags[0] == "" {
@@ -179,6 +157,11 @@ func (h *handler) apiGetBookmarks(w http.ResponseWriter, r *http.Request, ps htt
 		page = 1
 	}
 
+	var hasArchive *bool
+	if v, err := strconv.ParseBool(strHasArchive); err == nil {
+		hasArchive = &v
+	}
+
 	// Prepare filter for database
 	searchOptions := database.GetBookmarksOptions{
 		Tags:         tags,
@@ -187,6 +170,7 @@ func (h *handler) apiGetBookmarks(w http.ResponseWriter, r *http.Request, ps htt
 		Limit:        30,
 		Offset:       (page - 1) * 30,
 		OrderMethod:  database.ByLastAdded,
+		HasArchive:   hasArchive,
 	}
 
 	// Calculate max page
@@ -323,9 +307,9 @@ func (h *handler) apiInsertBookmark(w http.ResponseWriter, r *http.Request, ps h
 
 	book = &results[0]
 
-	if payload.Async {
+	if payload.Async && h.BackgroundArchiverNotifier == nil {
 		go func() {
-			bookmark, err := downloadBookmarkContent(book, h.DataDir, r)
+			bookmark, err := core.DownloadBookmarkContent(book, h.DataDir)
 			if err != nil {
 				log.Printf("error downloading boorkmark: %s", err)
 				return
@@ -334,15 +318,17 @@ func (h *handler) apiInsertBookmark(w http.ResponseWriter, r *http.Request, ps h
 				log.Printf("failed to save bookmark: %s", err)
 			}
 		}()
-	} else {
+	} else if h.BackgroundArchiverNotifier == nil {
 		// Workaround. Download content after saving the bookmark so we have the proper database
 		// id already set in the object regardless of the database engine.
-		book, err = downloadBookmarkContent(book, h.DataDir, r)
+		book, err = core.DownloadBookmarkContent(book, h.DataDir)
 		if err != nil {
 			log.Printf("error downloading boorkmark: %s", err)
 		} else if _, err := h.DB.SaveBookmarks(ctx, false, *book); err != nil {
 			log.Printf("failed to save bookmark: %s", err)
 		}
+	} else {
+		h.BackgroundArchiverNotifier.Notify()
 	}
 
 	// Return the new bookmark
@@ -446,7 +432,6 @@ func (h *handler) apiUpdateBookmark(w http.ResponseWriter, r *http.Request, ps h
 	// Update database
 	res, err := h.DB.SaveBookmarks(ctx, false, book)
 	checkError(err)
-
 	// Add thumbnail image to the saved bookmarks again
 	newBook := res[0]
 	newBook.ImageURL = request.ImageURL
