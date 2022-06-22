@@ -79,8 +79,8 @@ func (db *MySQLDatabase) SaveBookmarks(bookmarks ...model.Bookmark) (result []mo
 
 	// Prepare statement
 	stmtInsertBook, err := tx.Preparex(`INSERT INTO bookmark
-		(id, url, title, excerpt, author, public, content, html, modified)
-		VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)
+		(id, url, title, excerpt, author, public, content, html, modified, has_archive)
+		VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		ON DUPLICATE KEY UPDATE
 		url      = VALUES(url),
 		title    = VALUES(title),
@@ -89,7 +89,8 @@ func (db *MySQLDatabase) SaveBookmarks(bookmarks ...model.Bookmark) (result []mo
 		public   = VALUES(public),
 		content  = VALUES(content),
 		html     = VALUES(html),
-		modified = VALUES(modified)`)
+		modified = VALUES(modified),
+		has_archive = VALUES(has_archive)`)
 	checkError(err)
 
 	stmtGetTag, err := tx.Preparex(`SELECT id FROM tag WHERE name = ?`)

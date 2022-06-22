@@ -78,8 +78,8 @@ func (db *PGDatabase) SaveBookmarks(bookmarks ...model.Bookmark) (result []model
 
 	// Prepare statement
 	stmtInsertBook, err := tx.Preparex(`INSERT INTO bookmark
-		(url, title, excerpt, author, public, content, html, modified)
-		VALUES($1, $2, $3, $4, $5, $6, $7, $8)
+		(url, title, excerpt, author, public, content, html, modified, has_archive)
+		VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9)
 		ON CONFLICT(url) DO UPDATE SET
 		url      = $1,
 		title    = $2,
@@ -88,7 +88,8 @@ func (db *PGDatabase) SaveBookmarks(bookmarks ...model.Bookmark) (result []model
 		public   = $5,
 		content  = $6,
 		html     = $7,
-		modified = $8`)
+		modified = $8,
+		has_archive = $9`)
 	checkError(err)
 
 	stmtGetTag, err := tx.Preparex(`SELECT id FROM tag WHERE name = $1`)
@@ -130,7 +131,8 @@ func (db *PGDatabase) SaveBookmarks(bookmarks ...model.Bookmark) (result []model
 		// Save bookmark
 		stmtInsertBook.MustExec(
 			book.URL, book.Title, book.Excerpt, book.Author,
-			book.Public, book.Content, book.HTML, book.Modified)
+			book.Public, book.Content, book.HTML, book.Modified,
+			book.HasArchive)
 
 		// Save book tags
 		newTags := []model.Tag{}

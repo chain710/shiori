@@ -74,11 +74,11 @@ func (db *SQLiteDatabase) SaveBookmarks(bookmarks ...model.Bookmark) (result []m
 
 	// Prepare statement
 	stmtInsertBook, _ := tx.Preparex(`INSERT INTO bookmark
-		(id, url, title, excerpt, author, public, modified)
-		VALUES(?, ?, ?, ?, ?, ?, ?)
+		(id, url, title, excerpt, author, public, modified, has_archive)
+		VALUES(?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT(id) DO UPDATE SET
 		url = ?, title = ?,	excerpt = ?, author = ?,
-		public = ?, modified = ?`)
+		public = ?, modified = ?, has_archive = ?`)
 
 	stmtInsertBookContent, _ := tx.Preparex(`INSERT OR REPLACE INTO bookmark_content
 		(docid, title, content, html)
@@ -122,8 +122,8 @@ func (db *SQLiteDatabase) SaveBookmarks(bookmarks ...model.Bookmark) (result []m
 
 		// Save bookmark
 		stmtInsertBook.MustExec(book.ID,
-			book.URL, book.Title, book.Excerpt, book.Author, book.Public, book.Modified,
-			book.URL, book.Title, book.Excerpt, book.Author, book.Public, book.Modified)
+			book.URL, book.Title, book.Excerpt, book.Author, book.Public, book.Modified, book.HasArchive,
+			book.URL, book.Title, book.Excerpt, book.Author, book.Public, book.Modified, book.HasArchive)
 
 		// Try to update it first to check for existence, we can't do an UPSERT here because
 		// bookmant_content is a virtual table
@@ -274,6 +274,11 @@ func (db *SQLiteDatabase) GetBookmarks(opts GetBookmarksOptions) ([]model.Bookma
 			WHERE t.name IN(?))`
 
 		args = append(args, opts.ExcludedTags)
+	}
+
+	if opts.HasArchive != nil {
+		query += ` AND has_archive = ?`
+		args = append(args, *opts.HasArchive)
 	}
 
 	// Add order clause
