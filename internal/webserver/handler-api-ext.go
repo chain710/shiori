@@ -65,9 +65,7 @@ func (h *handler) apiInsertViaExtension(w http.ResponseWriter, r *http.Request, 
 	var contentType string
 	var contentBuffer io.Reader
 
-	if book.HTML == "" {
-		contentBuffer, contentType, _ = core.DownloadBookmark(book.URL)
-	} else {
+	if book.HTML != "" {
 		contentType = "text/html; charset=UTF-8"
 		contentBuffer = bytes.NewBufferString(book.HTML)
 	}
@@ -90,6 +88,7 @@ func (h *handler) apiInsertViaExtension(w http.ResponseWriter, r *http.Request, 
 			Bookmark:    book,
 			Content:     contentBuffer,
 			ContentType: contentType,
+			Fast:        true,
 		}
 
 		var isFatalErr bool
