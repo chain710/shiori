@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"os"
 	fp "path/filepath"
@@ -14,11 +13,13 @@ import (
 	"github.com/go-shiori/shiori/internal/core"
 	"github.com/go-shiori/shiori/internal/model"
 	"github.com/julienschmidt/httprouter"
+	"github.com/sirupsen/logrus"
 )
 
 // apiInsertViaExtension is handler for POST /api/bookmarks/ext
 func (h *handler) apiInsertViaExtension(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	// Make sure session still valid
+	logrus.Debugf("new insert request from extension")
 	err := h.validateSession(r)
 	checkError(err)
 
@@ -33,6 +34,7 @@ func (h *handler) apiInsertViaExtension(w http.ResponseWriter, r *http.Request, 
 		panic(fmt.Errorf("failed to clean URL: %v", err))
 	}
 
+	logrus.Debugf("read bookmarks from database")
 	// Check if bookmark already exists.
 	book, exist := h.DB.GetBookmark(0, request.URL)
 
@@ -64,9 +66,8 @@ func (h *handler) apiInsertViaExtension(w http.ResponseWriter, r *http.Request, 
 	var contentType string
 	var contentBuffer io.Reader
 
-	if book.HTML == "" {
-		contentBuffer, contentType, _ = core.DownloadBookmark(book.URL)
-	} else {
+	if book.HTML != "" {
+		logrus.Debugf("recv with html content: %s, size: %d", book.URL, len(book.HTML))
 		contentType = "text/html; charset=UTF-8"
 		contentBuffer = bytes.NewBufferString(book.HTML)
 	}
@@ -80,8 +81,10 @@ func (h *handler) apiInsertViaExtension(w http.ResponseWriter, r *http.Request, 
 			Bookmark:    book,
 			Content:     contentBuffer,
 			ContentType: contentType,
+			Fast:        true,
 		}
 
+		logrus.Debugf("process bookmark: %s", book.URL)
 		var isFatalErr bool
 		book, isFatalErr, err = core.ProcessBookmark(request)
 
@@ -94,7 +97,7 @@ func (h *handler) apiInsertViaExtension(w http.ResponseWriter, r *http.Request, 
 		}
 	}
 	if _, err := h.DB.SaveBookmarks(book); err != nil {
-		log.Printf("error saving bookmark after downloading content: %s", err)
+		logrus.Errorf("error saving bookmark after downloading content: %s", err)
 	}
 
 	// Save bookmark to database

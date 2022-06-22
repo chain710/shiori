@@ -3,6 +3,7 @@ package core
 import (
 	"bytes"
 	"fmt"
+	"github.com/sirupsen/logrus"
 	"image"
 	"image/color"
 	"image/draw"
@@ -34,11 +35,13 @@ type ProcessRequest struct {
 	KeepTitle   bool
 	KeepExcerpt bool
 	LogArchival bool
+	Fast        bool // skip all download in ProcessBookmark except reading body
 }
 
 // ProcessBookmark process the bookmark and archive it if needed.
 // Return three values, is error fatal, and error value.
 func ProcessBookmark(req ProcessRequest) (book model.Bookmark, isFatalErr bool, err error) {
+	log := logrus.WithField("book_url", req.Bookmark.URL)
 	book = req.Bookmark
 	contentType := req.ContentType
 
@@ -59,6 +62,7 @@ func ProcessBookmark(req ProcessRequest) (book model.Bookmark, isFatalErr bool, 
 		multiWriter = io.MultiWriter(archivalInput, readabilityInput, readabilityCheckInput)
 	}
 
+	log.Debugf("read bookmark content")
 	_, err = io.Copy(multiWriter, req.Content)
 	if err != nil {
 		return book, false, fmt.Errorf("failed to process article: %v", err)
@@ -113,11 +117,16 @@ func ProcessBookmark(req ProcessRequest) (book model.Bookmark, isFatalErr bool, 
 		book.HasContent = book.Content != ""
 	}
 
+	if req.Fast {
+		return book, false, nil
+	}
+
 	// Save article image to local disk
 	strID := strconv.Itoa(book.ID)
 	imgPath := fp.Join(req.DataDir, "thumb", strID)
 
 	for _, imageURL := range imageURLs {
+		log.Infof("download bookmark image to `%s`", imgPath)
 		err = downloadBookImage(imageURL, imgPath)
 		if err == nil {
 			book.ImageURL = path.Join("/", "bookmark", strID, "thumb")
@@ -137,7 +146,7 @@ func ProcessBookmark(req ProcessRequest) (book model.Bookmark, isFatalErr bool, 
 			UserAgent:   userAgent,
 			LogEnabled:  req.LogArchival,
 		}
-
+		log.Infof("create bookmark archive to `%s`", archivePath)
 		err = warc.NewArchive(archivalRequest, archivePath)
 		if err != nil {
 			return book, false, fmt.Errorf("failed to create archive: %v", err)
