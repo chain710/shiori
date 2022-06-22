@@ -33,7 +33,7 @@ func OpenPGDatabase(connString string) (pgDB *PGDatabase, err error) {
 }
 
 // Migrate runs migrations for this database engine
-func (db *PGDatabase) Migrate() error {
+func (db *PGDatabase) Migrate(down bool) error {
 	sourceDriver, err := iofs.New(migrations, "migrations/postgres")
 	checkError(err)
 
@@ -48,7 +48,9 @@ func (db *PGDatabase) Migrate() error {
 	)
 
 	checkError(err)
-
+	if down {
+		return migration.Down()
+	}
 	return migration.Up()
 }
 

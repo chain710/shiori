@@ -5,17 +5,17 @@ import (
 )
 
 func migrateCmd() *cobra.Command {
+	var migrateDown bool
 	cmd := &cobra.Command{
 		Use:   "migrate",
 		Short: "Migrates the database to the latest version",
-		Run:   migrateHandler,
+		Run: func(cmd *cobra.Command, args []string) {
+			if err := db.Migrate(migrateDown); err != nil {
+				cError.Printf("Error during migration: %s", err)
+			}
+		},
 	}
 
+	cmd.Flags().BoolVar(&migrateDown, "down", false, "migrate all the way down (applying all down migrations)")
 	return cmd
-}
-
-func migrateHandler(cmd *cobra.Command, args []string) {
-	if err := db.Migrate(); err != nil {
-		cError.Printf("Error during migration: %s", err)
-	}
 }

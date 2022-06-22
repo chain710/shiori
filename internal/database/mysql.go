@@ -33,7 +33,7 @@ func OpenMySQLDatabase(connString string) (mysqlDB *MySQLDatabase, err error) {
 }
 
 // Migrate runs migrations for this database engine
-func (db *MySQLDatabase) Migrate() error {
+func (db *MySQLDatabase) Migrate(down bool) error {
 	sourceDriver, err := iofs.New(migrations, "migrations/mysql")
 	checkError(err)
 
@@ -49,6 +49,9 @@ func (db *MySQLDatabase) Migrate() error {
 
 	checkError(err)
 
+	if down {
+		return migration.Down()
+	}
 	return migration.Up()
 }
 

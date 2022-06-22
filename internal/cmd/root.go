@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"github.com/sirupsen/logrus"
 	"os"
 	fp "path/filepath"
 
@@ -114,6 +115,7 @@ func openDatabase() (database.DB, error) {
 
 func openSQLiteDatabase() (database.DB, error) {
 	dbPath := fp.Join(dataDir, "shiori.db")
+	logrus.Debugf("ready to open sqlite database: %s", dbPath)
 	return database.OpenSQLiteDatabase(dbPath)
 }
 

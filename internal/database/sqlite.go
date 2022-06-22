@@ -30,7 +30,7 @@ func OpenSQLiteDatabase(databasePath string) (sqliteDB *SQLiteDatabase, err erro
 }
 
 // Migrate runs migrations for this database engine
-func (db *SQLiteDatabase) Migrate() error {
+func (db *SQLiteDatabase) Migrate(down bool) error {
 	sourceDriver, err := iofs.New(migrations, "migrations/sqlite")
 	checkError(err)
 
@@ -45,7 +45,9 @@ func (db *SQLiteDatabase) Migrate() error {
 	)
 
 	checkError(err)
-
+	if down {
+		return migration.Down()
+	}
 	return migration.Up()
 }
 

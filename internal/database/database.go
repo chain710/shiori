@@ -43,7 +43,7 @@ type GetAccountsOptions struct {
 // DB is interface for accessing and manipulating data in database.
 type DB interface {
 	// Migrate runs migrations for this database
-	Migrate() error
+	Migrate(down bool) error
 
 	// SaveBookmarks saves bookmarks data to database.
 	SaveBookmarks(bookmarks ...model.Bookmark) ([]model.Bookmark, error)
