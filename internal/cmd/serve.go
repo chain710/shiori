@@ -1,7 +1,9 @@
 package cmd
 
 import (
+	"github.com/go-shiori/shiori/internal/background"
 	"strings"
+	"time"
 
 	"github.com/go-shiori/shiori/internal/webserver"
 	"github.com/sirupsen/logrus"
@@ -22,6 +24,10 @@ func serveCmd() *cobra.Command {
 	cmd.Flags().StringP("address", "a", "", "Address the server listens to")
 	cmd.Flags().StringP("webroot", "r", "/", "Root path that used by server")
 	cmd.Flags().Bool("log", true, "Print out a non-standard access log")
+	cmd.Flags().Bool("auto-archive", false, "enable auto archive")
+	cmd.Flags().Int("auto-archive-concurrent", 2, "num of auto archive workers")
+	cmd.Flags().Duration("auto-archive-idle-delay", time.Minute, "delay if nothing to archive")
+	cmd.Flags().Duration("auto-archive-scan-delay", 10*time.Second, "delay after each scan")
 
 	return cmd
 }
@@ -32,6 +38,10 @@ func serveHandler(cmd *cobra.Command, args []string) {
 	address, _ := cmd.Flags().GetString("address")
 	rootPath, _ := cmd.Flags().GetString("webroot")
 	log, _ := cmd.Flags().GetBool("log")
+	autoArchive, _ := cmd.Flags().GetBool("auto-archive")
+	autoArchiveConcurrent, _ := cmd.Flags().GetInt("auto-archive-concurrent")
+	idleDelay, _ := cmd.Flags().GetDuration("auto-archive-idle-delay")
+	scanDelay, _ := cmd.Flags().GetDuration("auto-archive-scan-delay")
 
 	// Validate root path
 	if rootPath == "" {
@@ -54,6 +64,26 @@ func serveHandler(cmd *cobra.Command, args []string) {
 		ServerPort:    port,
 		RootPath:      rootPath,
 		Log:           log,
+	}
+
+	if autoArchive {
+		opt := background.AutoArchiveOptions{
+			Concurrent: autoArchiveConcurrent,
+			ScanDelay:  scanDelay,
+			IdleDelay:  idleDelay,
+		}
+		aa, err := background.NewAutoArchive(db, dataDir, opt)
+		if err != nil {
+			logrus.Errorf("create auto archive error: %\n", err)
+			return
+		}
+		aa.Start()
+
+		defer func() {
+			aa.Stop()
+		}()
+	} else {
+		logrus.Info("auto archive NOT enabled")
 	}
 
 	err := webserver.ServeApp(serverConfig)

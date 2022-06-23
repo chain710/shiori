@@ -23,6 +23,7 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
+// TODO(caijh) delete?
 func downloadBookmarkContent(book *model.Bookmark, dataDir string, request *http.Request) (*model.Bookmark, error) {
 	content, contentType, err := core.DownloadBookmark(book.URL)
 	if err != nil {
@@ -332,7 +333,7 @@ func (h *handler) apiInsertBookmark(w http.ResponseWriter, r *http.Request, ps h
 
 	if payload.Async {
 		go func() {
-			bookmark, err := downloadBookmarkContent(book, h.DataDir, r)
+			bookmark, err := core.DownloadBookmarkContent(book, h.DataDir)
 			if err != nil {
 				log.Printf("error downloading boorkmark: %s", err)
 				return
