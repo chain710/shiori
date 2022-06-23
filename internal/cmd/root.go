@@ -2,20 +2,22 @@ package cmd
 
 import (
 	"fmt"
-	"os"
-	fp "path/filepath"
-
 	"github.com/go-shiori/shiori/internal/database"
 	"github.com/go-shiori/shiori/internal/model"
 	apppaths "github.com/muesli/go-app-paths"
+	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"golang.org/x/net/context"
+	"os"
+	fp "path/filepath"
+	"time"
 )
 
 var (
 	db              database.DB
 	dataDir         string
 	developmentMode bool
+	logLevel        = LogLevel(logrus.InfoLevel)
 )
 
 // ShioriCmd returns the root command for shiori
@@ -27,6 +29,8 @@ func ShioriCmd() *cobra.Command {
 
 	rootCmd.PersistentPreRun = preRunRootHandler
 	rootCmd.PersistentFlags().Bool("portable", false, "run shiori in portable mode")
+	rootCmd.PersistentFlags().Var(&logLevel, "log-level", "set logrus loglevel")
+	rootCmd.PersistentFlags().Bool("log-caller", false, "logrus report caller or not")
 	rootCmd.AddCommand(
 		addCmd(),
 		printCmd(),
@@ -44,6 +48,16 @@ func ShioriCmd() *cobra.Command {
 }
 
 func preRunRootHandler(cmd *cobra.Command, args []string) {
+	// init logrus
+	logCaller, _ := cmd.Flags().GetBool("log-caller")
+	logrus.SetReportCaller(logCaller)
+	logrus.SetFormatter(&logrus.TextFormatter{
+		FullTimestamp:    true,
+		TimestampFormat:  time.RFC3339,
+		CallerPrettyfier: SFCallerPrettyfier,
+	})
+	logrus.SetLevel(logLevel.Value())
+
 	// Read flag
 	var err error
 	portableMode, _ := cmd.Flags().GetBool("portable")
