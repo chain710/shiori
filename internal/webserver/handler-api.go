@@ -22,29 +22,6 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-func downloadBookmarkContent(book *model.Bookmark, dataDir string, request *http.Request) (*model.Bookmark, error) {
-	content, contentType, err := core.DownloadBookmark(book.URL)
-	if err != nil {
-		return nil, fmt.Errorf("error downloading bookmark: %s", err)
-	}
-
-	processRequest := core.ProcessRequest{
-		DataDir:     dataDir,
-		Bookmark:    *book,
-		Content:     content,
-		ContentType: contentType,
-	}
-
-	result, isFatalErr, err := core.ProcessBookmark(processRequest)
-	content.Close()
-
-	if err != nil && isFatalErr {
-		panic(fmt.Errorf("failed to process bookmark: %v", err))
-	}
-
-	return &result, err
-}
-
 // apiLogin is handler for POST /api/login
 func (h *handler) apiLogin(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	// Decode request
@@ -315,7 +292,7 @@ func (h *handler) apiInsertBookmark(w http.ResponseWriter, r *http.Request, ps h
 	}
 
 	if !payload.Async {
-		book, err = downloadBookmarkContent(book, h.DataDir, r)
+		book, err = core.DownloadBookmarkContent(book, h.DataDir)
 		if err != nil {
 			log.Printf("error downloading boorkmark: %s", err)
 		}
@@ -329,7 +306,7 @@ func (h *handler) apiInsertBookmark(w http.ResponseWriter, r *http.Request, ps h
 
 	if payload.Async {
 		go func() {
-			bookmark, err := downloadBookmarkContent(book, h.DataDir, r)
+			bookmark, err := core.DownloadBookmarkContent(book, h.DataDir)
 			if err != nil {
 				log.Printf("error downloading boorkmark: %s", err)
 			}
