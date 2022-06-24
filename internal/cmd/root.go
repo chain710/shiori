@@ -67,6 +67,7 @@ func preRunRootHandler(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 
+	logrus.Debugf("use data dir: %s", dataDir)
 	err = os.MkdirAll(dataDir, os.ModePerm)
 	if err != nil {
 		cError.Printf("Failed to create data dir: %v\n", err)

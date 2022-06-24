@@ -81,7 +81,7 @@ func (h *handler) apiInsertViaExtension(w http.ResponseWriter, r *http.Request, 
 			Bookmark:    book,
 			Content:     contentBuffer,
 			ContentType: contentType,
-			Fast:        true,
+			Fast:        h.DisableDownloadContentInAPI,
 		}
 
 		logrus.Debugf("process bookmark: %s", book.URL)
@@ -105,6 +105,7 @@ func (h *handler) apiInsertViaExtension(w http.ResponseWriter, r *http.Request, 
 	if err != nil || len(results) == 0 {
 		panic(fmt.Errorf("failed to save bookmark: %v", err))
 	}
+	h.notify()
 	book = results[0]
 
 	// Return the new bookmark

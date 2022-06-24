@@ -44,7 +44,7 @@ func DownloadBookmarkContent(book *model.Bookmark, dataDir string) (*model.Bookm
 		Content:     content,
 		ContentType: contentType,
 	}
-	processRequest.Bookmark.CreateArchive = true
+
 	result, isFatalErr, err := ProcessBookmark(processRequest)
 	_ = content.Close()
 

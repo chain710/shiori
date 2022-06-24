@@ -126,11 +126,13 @@ func ProcessBookmark(req ProcessRequest) (book model.Bookmark, isFatalErr bool, 
 	imgPath := fp.Join(req.DataDir, "thumb", strID)
 
 	for _, imageURL := range imageURLs {
-		log.Infof("download bookmark image to `%s`", imgPath)
+		log.Debugf("download bookmark image `%s` to `%s`", imageURL, imgPath)
 		err = downloadBookImage(imageURL, imgPath)
 		if err == nil {
 			book.ImageURL = path.Join("/", "bookmark", strID, "thumb")
 			break
+		} else {
+			log.Errorf("download bookmark image `%s` error: %s", imageURL, err)
 		}
 	}
 

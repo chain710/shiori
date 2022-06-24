@@ -27,8 +27,7 @@ func serveCmd() *cobra.Command {
 	cmd.Flags().Bool("disable-auth", false, "disable user login/out; no auth required")
 	cmd.Flags().Bool("auto-archive", false, "enable auto archive")
 	cmd.Flags().Int("auto-archive-concurrent", 2, "num of auto archive workers")
-	cmd.Flags().Duration("auto-archive-idle-delay", time.Minute, "delay if nothing to archive")
-	cmd.Flags().Duration("auto-archive-scan-delay", 10*time.Second, "delay after each scan")
+	cmd.Flags().Duration("auto-archive-scan-interval", time.Minute, "delay after each scan")
 
 	return cmd
 }
@@ -42,8 +41,7 @@ func serveHandler(cmd *cobra.Command, args []string) {
 	disableAuth, _ := cmd.Flags().GetBool("disable-auth")
 	autoArchive, _ := cmd.Flags().GetBool("auto-archive")
 	autoArchiveConcurrent, _ := cmd.Flags().GetInt("auto-archive-concurrent")
-	idleDelay, _ := cmd.Flags().GetDuration("auto-archive-idle-delay")
-	scanDelay, _ := cmd.Flags().GetDuration("auto-archive-scan-delay")
+	scanInterval, _ := cmd.Flags().GetDuration("auto-archive-scan-interval")
 
 	// Validate root path
 	if rootPath == "" {
@@ -70,16 +68,18 @@ func serveHandler(cmd *cobra.Command, args []string) {
 	}
 
 	if autoArchive {
+		serverConfig.DisableDownloadContentInAPI = true
 		opt := background.AutoArchiveOptions{
-			Concurrent: autoArchiveConcurrent,
-			ScanDelay:  scanDelay,
-			IdleDelay:  idleDelay,
+			Concurrent:   autoArchiveConcurrent,
+			ScanInterval: scanInterval,
 		}
 		aa, err := background.NewAutoArchive(db, dataDir, opt)
 		if err != nil {
 			logrus.Errorf("create auto archive error: %\n", err)
 			return
 		}
+
+		serverConfig.Notify = aa
 		aa.Start()
 
 		defer func() {

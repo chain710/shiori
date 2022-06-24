@@ -291,7 +291,7 @@ func (h *handler) apiInsertBookmark(w http.ResponseWriter, r *http.Request, ps h
 		book.Title = book.URL
 	}
 
-	if !payload.Async {
+	if !payload.Async && !h.DisableDownloadContentInAPI {
 		book, err = core.DownloadBookmarkContent(book, h.DataDir)
 		if err != nil {
 			log.Printf("error downloading boorkmark: %s", err)
@@ -303,8 +303,8 @@ func (h *handler) apiInsertBookmark(w http.ResponseWriter, r *http.Request, ps h
 	if err != nil || len(results) == 0 {
 		panic(fmt.Errorf("failed to save bookmark: %v", err))
 	}
-
-	if payload.Async {
+	h.notify()
+	if payload.Async && !h.DisableDownloadContentInAPI {
 		go func() {
 			bookmark, err := core.DownloadBookmarkContent(book, h.DataDir)
 			if err != nil {
@@ -413,7 +413,6 @@ func (h *handler) apiUpdateBookmark(w http.ResponseWriter, r *http.Request, ps h
 	// Update database
 	res, err := h.DB.SaveBookmarks(book)
 	checkError(err)
-
 	// Add thumbnail image to the saved bookmarks again
 	newBook := res[0]
 	newBook.ImageURL = request.ImageURL

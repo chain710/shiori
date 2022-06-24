@@ -11,19 +11,16 @@ import (
 )
 
 type AutoArchiveOptions struct {
-	Concurrent           int
-	ScanDelay, IdleDelay time.Duration
+	Concurrent   int
+	ScanInterval time.Duration
 }
 
 func (a *AutoArchiveOptions) Validate() error {
 	if a.Concurrent <= 0 {
 		return errors.New("concurrent <= 0")
 	}
-	if a.ScanDelay <= 0 {
+	if a.ScanInterval <= 0 {
 		return errors.New("scan delay <= 0")
-	}
-	if a.IdleDelay <= 0 {
-		return errors.New("idle delay <= 0")
 	}
 
 	return nil
@@ -34,24 +31,26 @@ func NewAutoArchive(db database.DB, dataDir string, opt AutoArchiveOptions) (*Au
 		return nil, err
 	}
 	return &AutoArchive{
-		dataDir:    dataDir,
-		db:         db,
-		concurrent: opt.Concurrent,
-		scanDelay:  opt.ScanDelay,
-		idleDelay:  opt.IdleDelay,
-		stop:       make(chan struct{}),
+		dataDir:      dataDir,
+		db:           db,
+		concurrent:   opt.Concurrent,
+		scanInterval: opt.ScanInterval,
+		stop:         make(chan struct{}),
+		notify:       make(chan struct{}, 1),
 	}, nil
 }
 
+var _ core.ArchiveNotifier = &AutoArchive{}
+
 type AutoArchive struct {
-	dataDir    string
-	db         database.DB
-	concurrent int
-	queue      chan model.Bookmark
-	scanDelay  time.Duration // sleep after each scan
-	idleDelay  time.Duration // sleep idleDelay if all bookmarks are archived
-	stop       chan struct{}
-	stopWait   sync.WaitGroup
+	dataDir      string
+	db           database.DB
+	concurrent   int
+	queue        chan model.Bookmark
+	scanInterval time.Duration // sleep after each scan
+	stop         chan struct{}
+	stopWait     sync.WaitGroup
+	notify       chan struct{}
 }
 
 func (a *AutoArchive) Start() {
@@ -64,6 +63,15 @@ func (a *AutoArchive) Start() {
 	}()
 
 	logrus.Info("auto archive started")
+}
+
+func (a *AutoArchive) Notify() {
+	select {
+	case a.notify <- struct{}{}:
+		logrus.Debugf("notify auto archive")
+	default:
+		// do nothing
+	}
 }
 
 // Stop block until all goroutines exit
@@ -100,18 +108,17 @@ func (a *AutoArchive) archiveWorker(queue <-chan *model.Bookmark) {
 }
 
 func (a *AutoArchive) scanWorker() {
+	ticker := time.NewTicker(a.scanInterval)
 	for {
 		select {
 		case <-a.stop:
 			return
-		default:
-			if count := a.scanOnce(); count == 0 {
-				logrus.Debugf("scan nothing to archive")
-				time.Sleep(a.idleDelay)
-			} else {
-				logrus.Debugf("scan complete: %d", count)
-				time.Sleep(a.scanDelay)
-			}
+		case <-a.notify:
+			logrus.Debugf("scan wake up by notification")
+			a.scanOnce()
+		case <-ticker.C:
+			logrus.Debugf("scan wake up by ticker")
+			a.scanOnce()
 		}
 	}
 
@@ -130,6 +137,7 @@ func (a *AutoArchive) scanOnce() int {
 
 	count := len(bookmarks)
 	if count == 0 {
+		logrus.Debugf("scan nothing")
 		return 0
 	}
 
@@ -148,6 +156,7 @@ func (a *AutoArchive) scanOnce() int {
 
 func (a *AutoArchive) archiveOnce(bookmark *model.Bookmark) {
 	log := logrus.WithFields(logrus.Fields{"id": bookmark.ID, "url": bookmark.URL})
+	bookmark.CreateArchive = true
 	updatedBookmark, err := core.DownloadBookmarkContent(bookmark, a.dataDir)
 	if err != nil {
 		log.Errorf("download bookmark(%d) error: %s", bookmark.ID, err)
