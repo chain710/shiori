@@ -23,8 +23,7 @@ import (
 func (h *handler) serveFile(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	rootPath := strings.Trim(h.RootPath, "/")
 	urlPath := strings.Trim(r.URL.Path, "/")
-	filePath := strings.TrimPrefix(urlPath, rootPath)
-
+	filePath := strings.TrimLeft(strings.TrimPrefix(urlPath, rootPath), "/")
 	err := serveFile(w, filePath, true)
 	checkError(err)
 }
