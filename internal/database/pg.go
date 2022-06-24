@@ -248,7 +248,10 @@ func (db *PGDatabase) GetBookmarks(ctx context.Context, opts GetBookmarksOptions
 		arg["kw"] = opts.Keyword
 	}
 
-	// TODO(caijh) if opts.HasArchive
+	if opts.HasArchive != nil {
+		query += ` AND has_archive = :ha`
+		arg["ha"] = *opts.HasArchive
+	}
 
 	// Add where clause for tags.
 	// First we check for * in excluded and included tags,

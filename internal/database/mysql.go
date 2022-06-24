@@ -258,7 +258,7 @@ func (db *MySQLDatabase) GetBookmarks(ctx context.Context, opts GetBookmarksOpti
 	}
 
 	if opts.HasArchive != nil {
-		query += `AND has_archive = ?`
+		query += ` AND has_archive = ?`
 		args = append(args, *opts.HasArchive)
 	}
 
