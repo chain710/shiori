@@ -1,8 +1,10 @@
 # build stage
-FROM ghcr.io/ghcri/golang:1.17-alpine3.15 AS builder
+FROM --platform=$BUILDPLATFORM ghcr.io/ghcri/golang:1.17-alpine3.15 AS builder
+ARG TARGETOS
+ARG TARGETARCH
 WORKDIR /src
 COPY . .
-RUN go env -w GOPROXY=https://goproxy.cn,direct && go mod download all && go build -ldflags '-s -w'
+RUN go env -w GOPROXY=https://goproxy.cn,direct && go mod tidy && GOOS=$TARGETOS GOARCH=$TARGETARCH go build -ldflags '-s -w'
 
 # server image
 
