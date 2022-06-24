@@ -88,7 +88,7 @@ func (h *handler) apiInsertViaExtension(w http.ResponseWriter, r *http.Request, 
 			Bookmark:    book,
 			Content:     contentBuffer,
 			ContentType: contentType,
-			Fast:        true,
+			Fast:        h.DisableDownloadContentInAPI,
 		}
 
 		var isFatalErr bool
@@ -104,6 +104,8 @@ func (h *handler) apiInsertViaExtension(w http.ResponseWriter, r *http.Request, 
 			log.Printf("failed to process bookmark: %v", err)
 		} else if _, err := h.DB.SaveBookmarks(ctx, false, book); err != nil {
 			log.Printf("error saving bookmark after downloading content: %s", err)
+		} else {
+			h.notify()
 		}
 	}
 
