@@ -219,6 +219,11 @@ func (db *MySQLDatabase) GetBookmarks(opts GetBookmarksOptions) ([]model.Bookmar
 		args = append(args, "%"+opts.Keyword+"%", opts.Keyword)
 	}
 
+	if opts.HasArchive != nil {
+		query += ` AND has_archive = ?`
+		args = append(args, *opts.HasArchive)
+	}
+
 	// Add where clause for tags.
 	// First we check for * in excluded and included tags,
 	// which means all tags will be excluded and included, respectively.
